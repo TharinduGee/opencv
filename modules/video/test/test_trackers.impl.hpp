@@ -46,7 +46,8 @@ float calcDistance(const Rect& a, const Rect& b)
 {
     Point2f p_a((float)(a.x + a.width / 2), (float)(a.y + a.height / 2));
     Point2f p_b((float)(b.x + b.width / 2), (float)(b.y + b.height / 2));
-    return sqrt(pow(p_a.x - p_b.x, 2) + pow(p_a.y - p_b.y, 2));
+    Point2f diff = p_a - p_b;
+    return sqrt(diff.dot(diff));
 }
 
 float calcOverlap(const Rect& a, const Rect& b)
@@ -64,7 +65,7 @@ public:
     TrackerTest(const Ptr<Tracker>& tracker, const string& video, float distanceThreshold,
             float overlapThreshold, int shift = NoTransform, int segmentIdx = 1, int numSegments = 10);
     ~TrackerTest() {}
-    void run();
+    void run(int numFramesLimit = 0);
 
 protected:
     void checkDataTest();
@@ -335,7 +336,6 @@ void TrackerTest<Tracker, ROI_t>::checkDataTest()
     gt2.open(gtFile.c_str());
     ASSERT_TRUE(gt2.is_open()) << gtFile;
     string line2;
-    int bbCounter2 = 0;
     while (getline(gt2, line2))
     {
         vector<string> tokens = splitString(line2, ",");
@@ -343,7 +343,6 @@ void TrackerTest<Tracker, ROI_t>::checkDataTest()
         ASSERT_EQ((size_t)4, tokens.size()) << "Incorrect ground truth file " << gtFile;
 
         bbs.push_back(bb);
-        bbCounter2++;
     }
     gt2.close();
 
@@ -352,7 +351,7 @@ void TrackerTest<Tracker, ROI_t>::checkDataTest()
 }
 
 template <typename Tracker, typename ROI_t>
-void TrackerTest<Tracker, ROI_t>::run()
+void TrackerTest<Tracker, ROI_t>::run(int numFramesLimit)
 {
     srand(1);  // FIXIT remove that, ensure that there is no "rand()" in implementation
 
@@ -363,6 +362,21 @@ void TrackerTest<Tracker, ROI_t>::run()
     //check for failure
     if (::testing::Test::HasFatalFailure())
         return;
+
+    int numFrames = endFrame - startFrame;
+    std::cout << "Number of frames in test data: " << numFrames << std::endl;
+
+    if (numFramesLimit > 0)
+    {
+        numFrames = std::min(numFrames, numFramesLimit);
+        endFrame = startFrame + numFramesLimit;
+    }
+    else
+    {
+        applyTestTag(CV_TEST_TAG_DEBUG_VERYLONG);
+    }
+
+    std::cout << "Number of frames to test: " << numFrames << std::endl;
 
     distanceAndOverlapTest();
 }
